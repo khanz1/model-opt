@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIFAR-10 Image Classifier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background-color: #0f172a;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .container {
+            max-width: 1024px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 1.125rem;
+            max-width: 32rem;
+            margin: 0 auto;
+        }
+
+        .content {
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .upload-prediction-section {
+            max-width: 42rem;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        .card-content {
+            padding: 0 1.5rem 1.5rem 1.5rem;
+        }
+
+        .upload-card-content {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .upload-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .result-section {
+            flex: 1;
+            min-width: 300px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-header {
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #374151;
+        }
+
+        .model-selection {
+            margin-bottom: 1.5rem;
+        }
+
+        .model-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #f3f4f6;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 0.375rem;
+            color: white;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .model-select:hover {
+            border-color: #6b7280;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .upload-area {
+            border: 2px dashed #374151;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #4b5563;
+        }
+
+        .upload-area.drag-active {
+            border-color: #60a5fa;
+            background-color: rgba(96, 165, 250, 0.1);
+        }
+
+        .upload-icon {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 1rem auto;
+            color: #6b7280;
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .upload-subtext {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 12rem;
+            border-radius: 0.5rem;
+        }
+
+        .filename {
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+
+        .button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover:not(:disabled) {
+            background-color: #2563eb;
+        }
+
+        .button:disabled {
+            background-color: #374151;
+            cursor: not-allowed;
+        }
+
+        .error {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: rgba(220, 38, 38, 0.2);
+            border: 1px solid #dc2626;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #fca5a5;
+            font-size: 0.875rem;
+        }
+
+        .prediction-result {
+            text-align: center;
+        }
+
+        .prediction-emoji {
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .prediction-label {
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: capitalize;
+            margin-bottom: 0.5rem;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            background-color: #374151;
+            margin-bottom: 1rem;
+        }
+
+        .confidence-high { color: #4ade80; }
+        .confidence-medium { color: #facc15; }
+        .confidence-low { color: #f87171; }
+
+        .probabilities {
+            margin-top: 1rem;
+        }
+
+        .probability-header {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .probability-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .probability-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .probability-label span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            text-transform: capitalize;
+        }
+
+        .progress-bar {
+            height: 0.5rem;
+            background-color: #374151;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #3b82f6;
+            transition: width 0.3s;
+        }
+
+        .history-container {
+            max-height: none;
+        }
+
+        #historyList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: flex-start;
+        }
+
+        .history-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            flex: 0 0 auto;
+            width: 200px;
+        }
+
+        .history-image {
+            width: 6rem;
+            height: 6rem;
+            border-radius: 0.5rem;
+            background-color: #374151;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            overflow: hidden;
+        }
+
+        .history-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.25rem;
+        }
+
+        .history-content {
+            width: 100%;
+            text-align: center;
+        }
+
+        .history-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .history-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .history-details {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .example-badge {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .info-section {
+            margin-top: 2rem;
+        }
+
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .category-item {
+            text-align: center;
+            padding: 0.5rem;
+            background-color: #1f2937;
+            border-radius: 0.5rem;
+        }
+
+        .category-emoji {
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .category-label {
+            font-size: 0.875rem;
+            text-transform: capitalize;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .empty-state {
+            color: #6b7280;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .examples {
+            margin-top: 1rem;
+            opacity: 0.75;
+        }
+
+        .example-item {
+            border: 1px dashed #374151;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
+
+            .categories-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .history-item {
+                width: 160px;
+            }
+
+            .history-image {
+                width: 5rem;
+                height: 5rem;
+            }
+
+            .upload-card-content {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .upload-section,
+            .result-section {
+                min-width: unset;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .history-item {
+                width: 140px;
+            }
+
+            .history-image {
+                width: 4rem;
+                height: 4rem;
+            }
+
+            #historyList {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="title">CIFAR-10 Image Classifier</h1>
+            <p class="subtitle">
+                Upload an image and let our AI model classify it into one of 10 categories: airplane, automobile, bird, cat, deer, dog, frog, horse, ship, or truck.
+            </p>
+        </div>
+
+        <div class="content">
+            <div class="upload-prediction-section">
+                <!-- Upload Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7,10 12,15 17,10"/>
+                                <line x1="12" x2="12" y1="15" y2="3"/>
+                            </svg>
+                            Upload Image & Classification
+                        </div>
+                        <div class="card-description">Drag and drop an image or click to select</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="upload-card-content">
+                            <!-- Upload Section -->
+                            <div class="upload-section">
+                                <!-- Model Selection -->
+                                <div class="model-selection" id="modelSelection">
+                                    <label for="modelSelect" class="model-label">Select Model:</label>
+                                    <select id="modelSelect" class="model-select">
+                                        <option value="gpt-alpha.h5">GPT Alpha (1.3MB) - Lightweight Model</option>
+                                    </select>
+                                </div>
+
+                                <div class="upload-area" id="uploadArea">
+                                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+
+                                    <div id="uploadPrompt">
+                                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                                            <circle cx="9" cy="9" r="2"/>
+                                            <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                        </svg>
+                                        <div class="upload-text">Drop your image here</div>
+                                        <div class="upload-subtext">or click to browse</div>
+                                    </div>
+
+                                    <div id="previewContainer" class="preview-container hidden">
+                                        <img id="previewImage" class="preview-image" alt="Preview">
+                                        <div id="fileName" class="filename"></div>
+                                    </div>
+                                </div>
+
+                                <div id="errorMessage" class="error hidden">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="12" x2="12" y1="8" y2="12"/>
+                                        <line x1="12" x2="12.01" y1="16" y2="16"/>
+                                    </svg>
+                                    <span id="errorText"></span>
+                                </div>
+
+                                <button class="button" id="classifyBtn" disabled>Classify Image</button>
+                            </div>
+
+                            <!-- Result Section -->
+                            <div class="result-section" id="resultSection">
+                                <div class="result-header">
+                                    <div class="card-title">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <circle cx="12" cy="12" r="6"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                        </svg>
+                                        Classification Result
+                                    </div>
+                                </div>
+                                
+                                <div class="prediction-result">
+                                    <div id="predictionEmoji" class="prediction-emoji"></div>
+                                    <div id="predictionLabel" class="prediction-label"></div>
+                                    <div id="confidenceBadge" class="confidence-badge"></div>
+                                </div>
+
+                                <div class="probabilities">
+                                    <div class="probability-header">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+                                        </svg>
+                                        All Probabilities
+                                    </div>
+                                    <div id="probabilitiesList"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12,6 12,12 16,14"/>
+                        </svg>
+                        Prediction History
+                    </div>
+                    <div class="card-description">Recent classifications (<span id="historyCount">0</span> total)</div>
+                </div>
+                <div class="card-content">
+                    <div class="history-container" id="historyContainer">
+                        <div id="emptyHistory">
+                            <div class="empty-state">
+                                No predictions yet. Here are some examples of what you'll see:
+                            </div>
+                            <div class="examples">
+                                <!-- Example items will be populated by JavaScript -->
+                            </div>
+                            <div class="empty-state" style="margin-top: 1rem; font-size: 0.875rem; color: #6b7280;">
+                                Upload an image above to start making real predictions!
+                            </div>
+                        </div>
+                        <div id="historyList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="card info-section">
+            <div class="card-header">
+                <div class="card-title">About CIFAR-10</div>
+            </div>
+            <div class="card-content">
+                <p style="color: #9ca3af; margin-bottom: 1rem;">
+                    CIFAR-10 is a collection of images that are commonly used to train machine learning and computer vision algorithms. The dataset consists of 60,000 32x32 color images in 10 different classes.
+                </p>
+                <div class="categories-grid" id="categoriesGrid">
+                    <!-- Categories will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedFile = null;
+        let isUploading = false;
+        let prediction = null;
+        let history = [];
+
+        const cifar10Labels = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"];
+
+        const labelEmojis = {
+            airplane: "✈️",
+            automobile: "🚗",
+            bird: "🐦",
+            cat: "🐱",
+            deer: "🦌",
+            dog: "🐕",
+            frog: "🐸",
+            horse: "🐴",
+            ship: "🚢",
+            truck: "🚛"
+        };
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const fileName = document.getElementById('fileName');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const classifyBtn = document.getElementById('classifyBtn');
+        const resultSection = document.getElementById('resultSection');
+        const predictionEmoji = document.getElementById('predictionEmoji');
+        const predictionLabel = document.getElementById('predictionLabel');
+        const confidenceBadge = document.getElementById('confidenceBadge');
+        const probabilitiesList = document.getElementById('probabilitiesList');
+        const historyContainer = document.getElementById('historyContainer');
+        const emptyHistory = document.getElementById('emptyHistory');
+        const historyList = document.getElementById('historyList');
+        const historyCount = document.getElementById('historyCount');
+        const categoriesGrid = document.getElementById('categoriesGrid');
+        const modelSelect = document.getElementById('modelSelect');
+
+        // Initialize the app
+        function init() {
+            setupEventListeners();
+            populateCategories();
+            fetchHistory();
+        }
+
+        function setupEventListeners() {
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) handleFileSelect(file);
+            });
+
+            // Upload area click
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Drag and drop
+            uploadArea.addEventListener('dragenter', handleDrag);
+            uploadArea.addEventListener('dragleave', handleDrag);
+            uploadArea.addEventListener('dragover', handleDrag);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Classify button
+            classifyBtn.addEventListener('click', uploadAndPredict);
+        }
+
+        function handleDrag(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.type === 'dragenter' || e.type === 'dragover') {
+                uploadArea.classList.add('drag-active');
+            } else if (e.type === 'dragleave') {
+                uploadArea.classList.remove('drag-active');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('drag-active');
+
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                handleFileSelect(files[0]);
+            }
+        }
+
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select an image file');
+                return;
+            }
+
+            selectedFile = file;
+            hideError();
+            hidePrediction();
+
+            // Create preview URL
+            const url = URL.createObjectURL(file);
+            previewImage.src = url;
+            fileName.textContent = file.name;
+
+            // Show preview, hide prompt
+            uploadPrompt.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+
+            // Enable classify button
+            classifyBtn.disabled = false;
+        }
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function hidePrediction() {
+            resultSection.classList.remove('show');
+        }
+
+        function showPrediction(result) {
+            prediction = result;
+
+            predictionEmoji.textContent = labelEmojis[result.label];
+            predictionLabel.textContent = result.label;
+
+            const confidence = result.confidence;
+            confidenceBadge.textContent = `${confidence}% confident`;
+            confidenceBadge.className = `confidence-badge ${getConfidenceClass(confidence)}`;
+
+            // Populate probabilities
+            const sortedProbs = Object.entries(result.probabilities)
+                .sort(([,a], [,b]) => b - a);
+
+            probabilitiesList.innerHTML = '';
+            sortedProbs.forEach(([label, prob]) => {
+                const item = document.createElement('div');
+                item.className = 'probability-item';
+                item.innerHTML = `
+                    <div class="probability-label">
+                        <span>${labelEmojis[label]} ${label}</span>
+                        <span>${prob}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${prob}%"></div>
+                    </div>
+                `;
+                probabilitiesList.appendChild(item);
+            });
+
+            resultSection.classList.add('show');
+        }
+
+        function getConfidenceClass(confidence) {
+            if (confidence >= 80) return 'confidence-high';
+            if (confidence >= 60) return 'confidence-medium';
+            return 'confidence-low';
+        }
+
+        async function uploadAndPredict() {
+            if (!selectedFile) return;
+
+            setUploading(true);
+            hideError();
+
+            try {
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+                formData.append('model', modelSelect.value);
+
+                const response = await fetch(`/predictions`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showPrediction(result);
+                    fetchHistory(); // Refresh history
+                } else {
+                    const errorData = await response.json();
+                    showError(errorData.error || 'Failed to classify image');
+                }
+            } catch (error) {
+                showError('Failed to connect to the API. Make sure the Flask server is running.');
+            } finally {
+                setUploading(false);
+            }
+        }
+
+        function setUploading(uploading) {
+            isUploading = uploading;
+            classifyBtn.disabled = uploading || !selectedFile;
+            classifyBtn.textContent = uploading ? 'Classifying...' : 'Classify Image';
+        }
+
+        async function fetchHistory() {
+            try {
+                const response = await fetch(`/predictions`);
+                if (response.ok) {
+                    const data = await response.json();
+                    history = data.reverse(); // Show newest first
+                    updateHistoryDisplay();
+                }
+            } catch (error) {
+                console.error('Failed to fetch history:', error);
+            }
+        }
+
+        function updateHistoryDisplay() {
+            historyCount.textContent = history.length;
+
+            if (history.length === 0) {
+                emptyHistory.classList.remove('hidden');
+                historyList.classList.add('hidden');
+            } else {
+                emptyHistory.classList.add('hidden');
+                historyList.classList.remove('hidden');
+
+                historyList.innerHTML = '';
+                history.forEach((item, index) => {
+                    const historyItem = createHistoryItem(item);
+                    historyList.appendChild(historyItem);
+                });
+            }
+        }
+
+        function createHistoryItem(item) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+
+            const timestamp = new Date(item.timestamp).toLocaleString();
+            const confidenceClass = getConfidenceClass(item.confidence);
+
+            div.innerHTML = `
+                <div class="history-image">
+                    <img src="/static/uploads/${item.filename}" alt="${item.label}">
+                </div>
+                <div class="history-content">
+                    <div class="history-header">
+                        <div class="history-label">
+                            <span>${labelEmojis[item.label]}</span>
+                            <span style="font-weight: 600;">${item.label}</span>
+                        </div>
+                        <div class="confidence-badge ${confidenceClass}">
+                            ${item.confidence}%
+                        </div>
+                    </div>
+                    <div class="history-details">
+                        <div style="font-size: 0.75rem; color: #9ca3af; text-align: center;">${item.filename}</div>
+                        <div style="font-size: 0.75rem; color: #6b7280; text-align: center;">${timestamp}</div>
+                        <div style="font-size: 0.75rem; color: #60a5fa; text-align: center;">Model: ${item.model_used || 'gpt-beta.h5'}</div>
+                    </div>
+                </div>
+            `;
+
+            return div;
+        }
+
+        function populateCategories() {
+            categoriesGrid.innerHTML = '';
+            cifar10Labels.forEach(label => {
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                div.innerHTML = `
+                    <div class="category-emoji">${labelEmojis[label]}</div>
+                    <div class="category-label">${label}</div>
+                `;
+                categoriesGrid.appendChild(div);
+            });
+        }
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
