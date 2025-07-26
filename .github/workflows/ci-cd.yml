@@ -1,0 +1,72 @@
+name: CI/CD → AWS EC2
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      # 1) Checkout your code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Log in to Docker Hub
+      - name: Docker Hub Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 3) Build & push the Docker image
+      - name: Build & Push Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/model-opt:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/model-opt:${{ github.sha }}
+
+      # 4) SSH into EC2 and deploy
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # Create app directory for volumes
+            mkdir -p ~/app/uploads ~/app/models
+
+            # Pull latest application image
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/model-opt:latest
+
+            # Stop and remove existing container if it exists
+            docker stop model-opt-app 2>/dev/null || true
+            docker rm model-opt-app 2>/dev/null || true
+
+            # Start the application
+            docker run -d \
+              --name model-opt-app \
+              --restart unless-stopped \
+              -e PORT=${{ secrets.PORT || '8000' }} \
+              -p ${{ secrets.PORT || '8000' }}:${{ secrets.PORT || '8000' }} \
+              -v ~/app/uploads:/app/static/uploads \
+              -v ~/app/models:/app/models \
+              ${{ secrets.DOCKERHUB_USERNAME }}/model-opt:latest
+
+            # Wait and check if container is running
+            sleep 10
+            if docker ps | grep -q "model-opt-app"; then
+              echo "Application deployed successfully on port ${{ secrets.PORT || '8000' }}"
+            else
+              echo "Deployment failed"
+              docker logs model-opt-app --tail 10
+              exit 1
+            fi
